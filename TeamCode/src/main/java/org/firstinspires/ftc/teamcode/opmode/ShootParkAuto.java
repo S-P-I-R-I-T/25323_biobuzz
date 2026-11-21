@@ -19,9 +19,12 @@ import org.firstinspires.ftc.teamcode.robot.Wedge;
  * 동선은 ftc-tactic-sim 경기 파일 tacticsim-match_20261121-1252_RED_29pts 를 재생해 뽑은 것 (시뮬레이터 좌표는 화면 기준 y 아래쪽 +,
  * 로봇 오른쪽 = (−sinψ, cosψ)):
  *   RED 시작 (60.1, 134.2), 정면 = 필드 −y, 뒤 = RED GARDEN 벽, 왼쪽 = RED LOADING ZONE 벽
- *   → 그 자리에서 발사 → 왼쪽(필드 −x) 30 in → 앞(필드 −y) 103 in → 왼쪽 16 in → (14, 31) 근처 정지.
+ *   → 그 자리에서 발사 → 왼쪽(필드 −x) 30 in → 앞(필드 −y) 87 in → 왼쪽 16 in → (14, 47) 근처 정지.
+ *   (11/21 변경: 원래 시뮬레이터는 앞 103 in → ZONE 가운데(y 31). 먼 쪽에서 동맹이 들어오므로
+ *    ZONE 의 가까운 쪽 끝(y 47)에 로봇 절반(9 in)만 걸치게 앞 87 in 로 줄임.)
  *   RED LOADING ZONE = x 0~11, y 24~47. 로봇(18 in)이 일부만 걸쳐도 PARK, 벽에 안 닿아 있으면 LEAVE 까지 (3 + 5 = 8점).
- *   로봇 중심이 LOADING ZONE 벽에서 20 in 안쪽, ZONE 가운데에서 ±20 in 이내면 PARK.
+ *   로봇 중심이 LOADING ZONE 벽에서 20 in 안쪽이고, 가까운 쪽 끝(y 47)에서 9 in 넘게 덜 가지 않으면 PARK
+ *   (= 앞 구간이 78 in 보다 짧으면 ZONE 밖. 87 in 이면 9 in 여유, 더 가면 동맹 쪽으로 들어감).
  * BLUE 는 RED 의 필드 중심 점대칭(180° 회전)이라 로봇 기준 동작(왼쪽 → 앞 → 왼쪽)이 똑같다. 놓는 위치만 BLUE 쪽 대칭 자리.
  *
  * 순서: INIT 시작 자세(StartPose) → START: 쐐기 내림 → 터렛 가운데 → 발사 → (대기) → 주행 3구간.
@@ -43,10 +46,10 @@ public class ShootParkAuto extends LinearOpMode {
 
     /** 1구간: 왼쪽 거리 (inch). LOADING ZONE 벽 쪽으로, 터널(HIVE 아래)을 피해 벽에서 30 in 줄로. */
     public static double LEG1_LEFT_IN = 30;
-    /** 2구간: 앞(+) 거리 (inch). 필드 −y, LOADING ZONE 높이까지. */
-    public static double LEG2_FORWARD_IN = 103;
+    /** 2구간: 앞(+) 거리 (inch). LOADING ZONE 가까운 쪽 끝에 로봇 절반이 걸치는 높이까지 (먼 쪽은 동맹 자리). 78 미만이면 ZONE 밖. */
+    public static double LEG2_FORWARD_IN = 95;
     /** 3구간: 왼쪽 거리 (inch). 벽 쪽으로 붙이되 벽에 닿지 않게 (LEAVE 3점 유지). */
-    public static double LEG3_LEFT_IN = 16;
+    public static double LEG3_LEFT_IN = 24;
 
     @Override
     public void runOpMode() {
@@ -64,6 +67,7 @@ public class ShootParkAuto extends LinearOpMode {
         while (opModeInInit()) {
             pose.initLoop();
             telemetry.addData("시작 자세", pose.status());
+            telemetry.addData("자세 값", StartPose.values());
             telemetry.addLine("놓는 위치: 뒤 = 우리 GARDEN 벽에 붙임, 왼쪽 = 우리 LOADING ZONE 벽, 로봇 중심 ~ 그 벽 60 in.");
             telemetry.addData("발사", SHOOT ? "함" : "안 함 (주차만)");
             telemetry.addData("주행", "왼쪽 %.0f → 앞 %.0f → 왼쪽 %.0f in  (속도 앞 %.0f / 옆 %.0f in/s)",

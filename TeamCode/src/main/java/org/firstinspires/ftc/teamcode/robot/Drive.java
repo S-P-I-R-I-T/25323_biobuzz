@@ -26,8 +26,10 @@ public class Drive {
 
     /** 옆으로 갈 때 덜 가는 것 보정 (메카넘 특성). 1.0 = 보정 없음. */
     public static double STRAFE_CORRECTION = 1.1;
-    /** 느린 모드 속도 배율 (0~1). */
-    public static double SLOW_SCALE = 0.4;
+    /** TeleOp 전체 속도 배율 (이동·회전 모두). 11/21: 너무 빠르다고 해서 1.0 → 0.8. */
+    public static double MAX_SCALE = 0.7;
+    /** 느린 모드 속도 배율 (0~1). MAX_SCALE 에 한 번 더 곱해진다 (0.8 × 0.4 = 0.32). */
+    public static double SLOW_SCALE = 0.714285;
     /** 스틱이 이 값보다 작게 움직이면 0으로 본다. */
     public static double STICK_DEADBAND = 0.05;
 
@@ -161,7 +163,7 @@ public class Drive {
         double f = forwardSlew.calculate(deadband(forward), MOVE_ACCEL, MOVE_DECEL);
         double s = strafeSlew.calculate(deadband(strafe), MOVE_ACCEL, MOVE_DECEL);
         double t = turnSlew.calculate(turn, TURN_ACCEL, TURN_DECEL);
-        drive(f, s, t, slow);
+        drive(f * MAX_SCALE, s * MAX_SCALE, t * MAX_SCALE, slow);
     }
 
     /** 오른쪽 스틱으로 바라보려는 방향 (°). 스틱을 안 밀고 있으면 NaN. */

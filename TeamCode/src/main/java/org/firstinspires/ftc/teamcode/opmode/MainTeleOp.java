@@ -22,7 +22,7 @@ import org.firstinspires.ftc.teamcode.robot.Wedge;
  *   D-pad 좌 / 우  제자리 회전 (반시계 / 시계)
  *   (이동·회전 모두 슬루 레이트 리미터로 부드럽게 가속·감속)
  *   RT 누르고 있기 느린 모드
- *   OPTIONS        지금 방향을 "앞"으로 다시 정하기 (IMU 리셋)
+ *   LB (또는 OPTIONS)  지금 방향을 "앞"으로 다시 정하기 (IMU 방향 리셋). START 누를 때도 자동으로 한 번 함
  *   SHARE          필드 기준 ↔ 로봇 기준 주행 바꾸기 (IMU가 이상할 때 비상용)
  *
  * gamepad2 (오퍼레이터)
@@ -53,14 +53,17 @@ public class MainTeleOp extends LinearOpMode {
         Wedge wedge = new Wedge(hardwareMap);
         Turret turret = new Turret(hardwareMap);
 
-        // INIT: 시작 자세 (터렛 90° → 쐐기 최대). Turret.INIT_POS 를 아직 안 쟀으면 아무것도 안 움직임.
+        // INIT: 기본은 아무것도 움직이지 않는다 (규칙 G403: 오토 → TeleOp 전환 시간에 INIT 으로 움직이면 반칙).
+        // 오토 없이 TeleOp 으로 경기를 시작할 때만(인스펙션 18 in 자세 필요) gamepad1 A 로 시작 자세를 만든다.
         StartPose pose = new StartPose(turret, wedge);
-        pose.begin();
         while (opModeInInit()) {
+            if (!pose.started() && gamepad1.aWasPressed()) pose.begin();
             pose.initLoop();
-            telemetry.addLine("준비 완료. 로봇을 경기장 안쪽(앞)으로 향하게 놓고 START.");
-            telemetry.addData("시작 자세", pose.status());
-            telemetry.addLine("START 하면 쐐기가 내려가고, 잠시 뒤 터렛이 가운데로 돌아옴. 주변 확인.");
+            telemetry.addLine("INIT 중에는 로봇이 움직이지 않음 (전환 시간에 INIT 눌러도 안전).");
+            telemetry.addData("시작 자세", pose.started() ? pose.status()
+                    : "안 만듦 — 오토 없이 TeleOp 으로 경기 시작할 때만 gamepad1 A");
+            telemetry.addData("자세 값", StartPose.values());
+            telemetry.addLine("START: 쐐기 먼저 내려가고 0.5초 뒤 터렛 가운데. 필드 기준 '앞' = START 순간 로봇이 보는 방향.");
             telemetry.update();
         }
         waitForStart();
@@ -79,7 +82,10 @@ public class MainTeleOp extends LinearOpMode {
 
         while (opModeIsActive()) {
             // ── 주행 (gamepad1) ──
-            if (gamepad1.optionsWasPressed()) drive.resetHeading();
+            // 방향 리셋: LB (잘 보이는 버튼). OPTIONS 도 같은 기능으로 남겨 둠
+            boolean resetPressed = gamepad1.leftBumperWasPressed();
+            if (gamepad1.optionsWasPressed()) resetPressed = true;
+            if (resetPressed) drive.resetHeading();
             if (gamepad1.shareWasPressed()) drive.setFieldCentric(!drive.isFieldCentric());
             drive.teleOp(-gamepad1.left_stick_y, gamepad1.left_stick_x,
                     gamepad1.right_stick_x, -gamepad1.right_stick_y,
@@ -132,7 +138,8 @@ public class MainTeleOp extends LinearOpMode {
 
             // ── 터렛 ──
             if (pose.holdingTurret()) {
-                turret.update(0, 0);   // START 직후: 쐐기가 내려갈 때까지 터렛을 시작 자세에 잡아 둠
+                // START 직후: 쐐기가 내려갈 때까지 터렛을 지금 자리에 잡아 둠. 지금 자리를 모르면 아무 명령도 안 보냄.
+                if (turret.knowsPosition() || pose.started()) turret.update(0, 0);
             } else {
                 if (gamepad2.xWasPressed()) turret.center();
                 int fine = gamepad2.left_bumper ? -1 : gamepad2.right_bumper ? 1 : 0;

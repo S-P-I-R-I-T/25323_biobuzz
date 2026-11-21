@@ -32,6 +32,9 @@ public class Wedge {
         servo = hardwareMap.get(Servo.class, HardwareNames.WEDGE);
     }
 
+    /** 위치를 직접 보낸다 (Start Pose Check 에서 값 찾을 때만). */
+    public void setRaw(double pos) { servo.setPosition(pos); }
+
     public void set(State s) {
         state = s;
         servo.setPosition(positionOf(s));

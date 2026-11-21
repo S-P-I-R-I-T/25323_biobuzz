@@ -25,6 +25,12 @@ import com.qualcomm.robotcore.hardware.PwmControl;
  */
 @Configurable
 public class Turret {
+    /**
+     * 터렛 사용 여부. false 면 이 클래스는 서보에 아무 명령도 보내지 않는다 (모든 동작이 무시됨).
+     * 2026-11-21: 서보 기어가 헛돌아(유격, 대회 전 수리 불가) 터렛을 정면(인테이크 방향)에 기계적으로 고정 → false.
+     * 인스펙션은 "터렛 정면 + 쐐기 0.618" 자세로 통과. 고치면 true 로 바꾸면 예전 기능이 그대로 돌아온다.
+     */
+    public static boolean ENABLED = false;
     /** true = Axon 위치(standard) 모드, false = 연속 회전(continuous) 모드. */
     public static boolean POSITION_MODE = true;
     /**
@@ -84,6 +90,9 @@ public class Turret {
     private double power;              // 연속 모드: 파워
     private double target;             // 위치 모드: 목표 위치 (0~1)
     private boolean started;           // 위치 모드: 첫 update 전에는 서보를 움직이지 않음
+    /** 마지막으로 보낸 위치 (OpMode 가 바뀌어도 앱이 켜져 있는 동안 남음). 오토 → TeleOp 때 터렛 위치를 알기 위해. */
+    private static double lastSent = Double.NaN;
+    private final boolean knowsPosition;
     private long lastNs = System.nanoTime();
     private double servoDeg;           // 연속 모드: INIT 이후 서보가 돈 누적 각도
     private double lastServoAngle;
@@ -95,8 +104,9 @@ public class Turret {
         applyPwmRange(servo);
         // 위치 모드에서는 방향을 뒤집으면 위치 숫자까지 뒤집히므로 항상 정방향으로 두고, 스틱 부호만 바꾼다.
         servo.setDirection(!POSITION_MODE && REVERSED ? DcMotorSimple.Direction.REVERSE : DcMotorSimple.Direction.FORWARD);
-        if (!POSITION_MODE) servo.setPower(0);   // 위치 모드는 INIT 때 움직이지 않도록 아무 명령도 안 보냄
-        target = CENTER_POS;
+        if (ENABLED && !POSITION_MODE) servo.setPower(0);   // 위치 모드는 INIT 때 움직이지 않도록 아무 명령도 안 보냄
+        knowsPosition = !Double.isNaN(lastSent);
+        target = knowsPosition ? lastSent : CENTER_POS;   // 이전 OpMode 가 보낸 위치를 이어받음 (모르면 가운데)
         feedback = hardwareMap.tryGet(AnalogInput.class, HardwareNames.TURRET_FEEDBACK);
         if (feedback != null) lastServoAngle = servoAngle();
     }
@@ -121,20 +131,29 @@ public class Turret {
     public double targetPosition() { return target; }
 
     /** 시작 자세 위치가 측정되어 들어가 있는지. */
-    public static boolean initPoseSet() { return POSITION_MODE && INIT_POS >= 0 && INIT_POS <= 1; }
+    public static boolean initPoseSet() { return ENABLED && POSITION_MODE && INIT_POS >= 0 && INIT_POS <= 1; }
 
     /** 위치 모드: 목표를 pos 로 정하고 바로 보낸다 (시작 자세 등). */
     public void goTo(double pos) {
-        if (!POSITION_MODE) return;
+        if (!ENABLED || !POSITION_MODE) return;
         double lo = Math.min(MIN_POS, MAX_POS), hi = Math.max(MIN_POS, MAX_POS);
         target = Math.max(lo, Math.min(hi, pos));
-        started = true;
-        servo.setPower(2 * target - 1);
+        send();
     }
+
+    private void send() {
+        started = true;
+        lastSent = target;
+        servo.setPower(2 * target - 1);    // CR 서보 파워 -1~1 = 위치 0~1 과 같은 신호
+    }
+
+    /** 이전 OpMode 가 터렛에 보낸 위치를 알고 있는지 (모르면 지금 위치를 모르는 것). */
+    public boolean knowsPosition() { return knowsPosition; }
 
     /** 가운데로 돌아가기. 위치 모드는 즉시 목표를 가운데로, 연속 모드는 스틱을 움직이면 취소된다. */
     public void center() {
-        if (POSITION_MODE) target = CENTER_POS;
+        if (!ENABLED) return;
+        if (POSITION_MODE) goTo(CENTER_POS);   // 목표만 바꾸지 않고 바로 보낸다 (오토처럼 update 를 안 부르는 곳에서도 움직이도록)
         else if (angleKnown()) centering = true;
     }
     public boolean isCentering() { return centering; }
@@ -146,6 +165,7 @@ public class Turret {
      * @param fine  -1, 0, 1 (정밀 버튼)
      */
     public void update(double stick, int fine) {
+        if (!ENABLED) return;   // 터렛 고정 — 아무 명령도 안 보냄
         long now = System.nanoTime();
         double dt = Math.min((now - lastNs) / 1e9, 0.1);
         lastNs = now;
@@ -161,8 +181,7 @@ public class Turret {
         atLimit = (next <= lo && rate < 0) || (next >= hi && rate > 0);
         target = Math.max(lo, Math.min(hi, next));
         power = rate;
-        started = true;
-        servo.setPower(2 * target - 1);    // CR 서보 파워 -1~1 = 위치 0~1 과 같은 신호
+        send();
     }
 
     private void updateContinuous(double stick, int fine) {
@@ -200,6 +219,7 @@ public class Turret {
     public void stop() {
         centering = false;
         power = 0;
+        if (!ENABLED) return;
         if (!POSITION_MODE) servo.setPower(0);
         else if (started) servo.setPower(2 * target - 1);
     }

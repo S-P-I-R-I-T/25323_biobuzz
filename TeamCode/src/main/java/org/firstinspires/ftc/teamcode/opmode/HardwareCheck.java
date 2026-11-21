@@ -72,7 +72,7 @@ public class HardwareCheck extends LinearOpMode {
         turret.crServo = hardwareMap.tryGet(CRServo.class, HardwareNames.TURRET);
         if (turret.crServo != null) Turret.applyPwmRange(turret.crServo);   // TeleOp과 같은 신호 범위
         turret.servoPos = Turret.CENTER_POS;
-        devices.add(turret);
+        if (Turret.ENABLED) devices.add(turret);   // 터렛 고정 중(ENABLED=false)이면 목록에서 빼서 실수로 돌리지 않게 함
         Device blocker = new Device(HardwareNames.BLOCKER, "블로커 서보 (CH 서보 1)");
         blocker.servo = hardwareMap.tryGet(Servo.class, HardwareNames.BLOCKER);
         blocker.servoPos = Intake.BLOCKER_CLOSED;

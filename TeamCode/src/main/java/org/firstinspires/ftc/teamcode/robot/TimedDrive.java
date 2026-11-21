@@ -12,12 +12,23 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  */
 @Configurable
 public class TimedDrive {
-    /** 오토 이동 파워 (0~1). 이 파워로 잰 속도가 아래 IPS 값이다 — 파워를 바꾸면 다시 잴 것. */
-    public static double MOVE_POWER = 0.5;
-    /** MOVE_POWER 로 앞으로 갈 때 실제 속도 (inch/s). TODO(25323): Auto Drive Calibration 으로 측정. */
-    public static double FORWARD_IPS = 30;
-    /** MOVE_POWER 로 옆(왼쪽)으로 갈 때 실제 속도 (inch/s). 메카넘은 옆이 더 느리다. TODO(25323): 측정. */
-    public static double STRAFE_IPS = 24;
+    /**
+     * 오토 이동 파워 (0~1). 이 파워로 잰 속도가 아래 IPS 값이다 — 파워를 바꾸면 다시 잴 것.
+     * 11/21: 너무 빠르다고 해서 0.5 → 0.4 (80%).
+     */
+    public static double MOVE_POWER = 0.4;
+    /**
+     * MOVE_POWER 로 앞으로 갈 때 실제 속도 (inch/s).
+     * 11/21 실측 (파워 0.5): 2초에 202·204·203 cm → 79.9 in ÷ 2 = 40.0.
+     * 파워 0.4 값은 0.8배로 추정한 32.0 — TODO(25323): Auto Drive Calibration 으로 다시 잴 것 (실제로는 조금 더 느릴 수 있음).
+     */
+    public static double FORWARD_IPS = 32.0;
+    /**
+     * MOVE_POWER 로 옆(왼쪽)으로 갈 때 실제 속도 (inch/s).
+     * 11/21 실측 (파워 0.5): 2초에 155.5·153.7·154.9 cm → 60.9 in ÷ 2 = 30.5.
+     * 파워 0.4 값은 0.8배로 추정한 24.4 — TODO(25323): 다시 잴 것.
+     */
+    public static double STRAFE_IPS = 24.4;
     /** 방향 유지: 각도 오차 1°당 회전 파워. */
     public static double HEADING_KP = 0.02;
     /** 방향 유지 최대 회전 파워. */
